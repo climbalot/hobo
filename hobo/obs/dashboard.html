@@ -1,0 +1,359 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Risk Engine</title>
+<style>
+  :root {
+    --bg: #0b0e14; --panel: #141922; --panel2: #1b212c; --line: #232a36;
+    --fg: #e6edf3; --muted: #8b98a9; --accent: #4c9ffe;
+    --up: #26c281; --down: #f2545b; --warn: #f5a623;
+    --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--fg);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+  header { display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+    padding: 12px 20px; border-bottom: 1px solid var(--line); background: var(--panel); }
+  header .inst { font-size: 18px; font-weight: 700; letter-spacing: .3px; }
+  header .sub { font-family: var(--mono); font-size: 14px; color: var(--muted); }
+  .badge { font-size: 12px; padding: 3px 9px; border-radius: 999px; font-weight: 600; }
+  .badge.ok { background: rgba(38,194,129,.15); color: var(--up); }
+  .badge.stale { background: rgba(245,166,35,.15); color: var(--warn); }
+  .badge.err { background: rgba(242,84,91,.15); color: var(--down); }
+  .badge.kill { background: rgba(242,84,91,.2); color: var(--down); }
+  header .spacer { flex: 1; }
+  header .updated { color: var(--muted); font-size: 12px; font-family: var(--mono); }
+  nav.maintabs { display: flex; gap: 4px; padding: 10px 20px 0; border-bottom: 1px solid var(--line); background: var(--panel); }
+  .mtab { background: none; border: none; color: var(--muted); font: inherit; font-size: 14px; font-weight: 600;
+    padding: 10px 16px; cursor: pointer; border-bottom: 2px solid transparent; }
+  .mtab.active { color: var(--fg); border-bottom-color: var(--accent); }
+  main { padding: 20px; max-width: 1100px; margin: 0 auto; }
+  .view[hidden] { display: none; }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 16px; margin-bottom: 16px; }
+  .card h3 { margin: 0 0 10px; font-size: 13px; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: .5px; }
+  .stat { font-family: var(--mono); font-size: 30px; font-weight: 700; margin-bottom: 8px; }
+  .rows { display: grid; grid-template-columns: auto 1fr; gap: 5px 12px; font-family: var(--mono); font-size: 13px; }
+  .rows .k { color: var(--muted); } .rows .v { text-align: right; }
+  .tot { border-top: 1px solid var(--line); padding-top: 6px; margin-top: 3px; font-weight: 700; }
+  .up { color: var(--up); } .down { color: var(--down); } .muted { color: var(--muted); }
+  .bar { margin-top: 6px; height: 6px; border-radius: 4px; background: var(--panel2); overflow: hidden; }
+  .bar > span { display: block; height: 100%; border-radius: 4px; background: var(--accent); transition: width .3s; }
+  .bar.warn > span { background: var(--warn); } .bar.crit > span { background: var(--down); }
+  .barlabel { display: flex; justify-content: space-between; font-size: 11px; color: var(--muted); font-family: var(--mono); margin-top: 6px; }
+  canvas { width: 100%; height: 200px; display: block; }
+  table { width: 100%; border-collapse: collapse; font-family: var(--mono); font-size: 13px; }
+  th { text-align: left; color: var(--muted); font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: .5px; padding: 5px 10px; border-bottom: 1px solid var(--line); }
+  td { padding: 6px 10px; border-bottom: 1px solid var(--panel2); }
+  th.num, td.num { text-align: right; } tr:last-child td { border-bottom: none; }
+  .subtabs { display: flex; gap: 4px; margin-bottom: 14px; flex-wrap: wrap; }
+  .subtab { background: var(--panel2); border: 1px solid var(--line); color: var(--muted); font: inherit; font-size: 13px; font-weight: 600;
+    padding: 6px 14px; border-radius: 999px; cursor: pointer; }
+  .subtab.active { background: var(--accent); border-color: var(--accent); color: #06121f; }
+  #err { display: none; background: rgba(242,84,91,.15); color: var(--down); padding: 8px 20px; font-family: var(--mono); font-size: 13px; }
+  .orderform { display: flex; flex-direction: column; gap: 14px; }
+  .orderform label { display: flex; flex-direction: column; gap: 6px; font-size: 12px; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: .4px; }
+  .orderform select, .orderform input { background: var(--panel2); border: 1px solid var(--line); color: var(--fg);
+    font-family: var(--mono); font-size: 15px; padding: 9px 11px; border-radius: 8px; }
+  .orderform select:focus, .orderform input:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+  .sidetoggle { display: flex; gap: 8px; }
+  .sidebtn { flex: 1; background: var(--panel2); border: 1px solid var(--line); color: var(--muted);
+    font: inherit; font-weight: 700; font-size: 15px; padding: 10px; border-radius: 8px; cursor: pointer; }
+  .sidebtn.active[data-side="BUY"] { background: rgba(38,194,129,.15); border-color: var(--up); color: var(--up); }
+  .sidebtn.active[data-side="SELL"] { background: rgba(242,84,91,.15); border-color: var(--down); color: var(--down); }
+  .placebtn { background: var(--accent); border: none; color: #06121f; font: inherit; font-weight: 700; font-size: 15px;
+    padding: 12px; border-radius: 8px; cursor: pointer; margin-top: 2px; }
+  .placebtn:hover { filter: brightness(1.08); } .placebtn:disabled { opacity: .5; cursor: default; }
+  .ordresult { font-family: var(--mono); font-size: 13px; min-height: 20px; word-break: break-word; }
+</style>
+</head>
+<body>
+<header>
+  <span class="inst" id="deskId">-</span>
+  <span class="sub" id="instCount">-</span>
+  <span class="badge" id="feed">-</span>
+  <span class="badge kill" id="kill" style="display:none">DESK KILL SWITCH</span>
+  <span class="spacer"></span>
+  <span class="updated" id="updated">connecting...</span>
+</header>
+<div id="err">disconnected - retrying...</div>
+<nav class="maintabs">
+  <button class="mtab active" data-view="overall">Overall</button>
+  <button class="mtab" data-view="strategies">Strategies</button>
+  <button class="mtab" data-view="trades">Trades</button>
+  <button class="mtab" data-view="order">Order</button>
+</nav>
+<main>
+  <section id="view-overall" class="view">
+    <div class="card">
+      <h3>Desk PnL (net)</h3>
+      <div class="stat" id="deskPnl">-</div>
+      <div class="rows" id="deskAttr"></div>
+      <div style="margin-top:14px" class="rows">
+        <span class="k">Drawdown <span class="muted">(peak-to-now equity drop)</span></span><span class="v" id="deskDd">-</span>
+      </div>
+      <div class="bar" id="deskDdBar"><span></span></div>
+      <div class="barlabel"><span>vs limit</span><span id="deskDdLabel"></span></div>
+      <div style="margin-top:12px" class="rows">
+        <span class="k">Gross notional <span class="muted">(total position size)</span></span><span class="v" id="deskNot">-</span>
+      </div>
+      <div class="bar" id="deskNotBar"><span></span></div>
+      <div class="barlabel"><span>vs limit</span><span id="deskNotLabel"></span></div>
+    </div>
+    <div class="card">
+      <h3>Desk PnL (live)</h3>
+      <canvas id="chart"></canvas>
+      <div class="barlabel"><span id="chartStart"></span><span id="chartNow"></span></div>
+    </div>
+    <div class="card">
+      <h3>Instruments</h3>
+      <table id="instruments"><thead><tr>
+        <th>instrument</th><th class="num">mark</th><th class="num">net pos</th><th class="num">notional</th><th class="num">unrealized</th><th>feed</th>
+      </tr></thead><tbody></tbody></table>
+    </div>
+    <div class="card" id="reconCard" style="display:none">
+      <h3>Exchange Reconciliation <span class="badge" id="reconBadge"></span></h3>
+      <div class="rows" style="margin-bottom:10px">
+        <span class="k">Exchange equity</span><span class="v" id="reconEquity">-</span>
+        <span class="k">Last reconciled</span><span class="v muted" id="reconTime">-</span>
+      </div>
+      <table id="reconTable"><thead><tr>
+        <th>instrument</th><th class="num">engine</th><th class="num">exchange</th><th class="num">diff</th><th>status</th>
+      </tr></thead><tbody></tbody></table>
+    </div>
+  </section>
+
+  <section id="view-strategies" class="view" hidden>
+    <div class="card">
+      <div class="subtabs" id="bookTabs"></div>
+      <div id="bookDetail"></div>
+    </div>
+  </section>
+
+  <section id="view-order" class="view" hidden>
+    <div class="card" style="max-width:460px">
+      <h3>Place Order</h3>
+      <div class="orderform">
+        <label>Book<select id="ordBook"></select></label>
+        <label>Instrument<select id="ordInstrument"></select></label>
+        <div class="sidetoggle" id="ordSide">
+          <button type="button" class="sidebtn active" data-side="BUY">BUY</button>
+          <button type="button" class="sidebtn" data-side="SELL">SELL</button>
+        </div>
+        <label>Quantity <span class="muted">(contracts, market order)</span>
+          <input id="ordQty" type="number" step="any" min="0" value="0.1"></label>
+        <button type="button" class="placebtn" id="ordPlace">Place order</button>
+        <div id="ordResult" class="ordresult"></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="view-trades" class="view" hidden>
+    <div class="card">
+      <h3>Recent Trades</h3>
+      <table id="trades"><thead><tr>
+        <th>time</th><th>book</th><th>instrument</th><th>side</th><th class="num">qty</th><th class="num">price</th><th class="num">fee</th>
+      </tr></thead><tbody></tbody></table>
+      <div class="muted" id="tradesEmpty" style="font-family:var(--mono);font-size:13px">no trades yet</div>
+    </div>
+  </section>
+</main>
+<script>
+const POLL_MS = 1000, HIST = 300;
+const hist = [];  // {t: ms, v: pnl}
+let selectedBook = null, currentView = "overall";
+let orderSide = "BUY", orderFormReady = false;
+
+const fmt = (x, d=2) => (x==null || isNaN(x)) ? "-" : Number(x).toLocaleString(undefined,{minimumFractionDigits:d, maximumFractionDigits:d});
+const q = x => fmt(x, 8);                          // quantities: 8dp
+const sign = x => (x>0?"+":"") + fmt(x, 8);        // PnL: 8dp signed
+const cls = x => x > 0 ? "up" : x < 0 ? "down" : "";
+const clock = ms => new Date(ms).toLocaleTimeString();
+const barState = pct => pct >= 90 ? "crit" : pct >= 70 ? "warn" : "";
+
+function setView(v){
+  currentView = v;
+  for (const el of document.querySelectorAll(".mtab")) el.classList.toggle("active", el.dataset.view===v);
+  for (const el of document.querySelectorAll(".view")) el.hidden = (el.id !== "view-"+v);
+}
+document.querySelector("nav.maintabs").addEventListener("click", e => {
+  if (e.target.dataset.view) setView(e.target.dataset.view);
+});
+
+function bar(barId, labelId, value, limit){
+  const pct = limit > 0 ? Math.min(100, value/limit*100) : 0;
+  const el = document.getElementById(barId);
+  el.className = "bar " + barState(pct);
+  el.firstElementChild.style.width = pct + "%";
+  document.getElementById(labelId).textContent = `${fmt(value)} / ${fmt(limit,0)} (${pct.toFixed(0)}%)`;
+}
+
+function attrRows(d){
+  return `
+    <span class="k">Realized</span><span class="v ${cls(d.realized_pnl)}">${sign(d.realized_pnl)}</span>
+    <span class="k">Unrealized</span><span class="v ${cls(d.unrealized_pnl)}">${sign(d.unrealized_pnl)}</span>
+    <span class="k">Funding</span><span class="v ${cls(d.funding_pnl)}">${sign(d.funding_pnl)}</span>
+    <span class="k">Fees</span><span class="v ${d.fees_paid>0?'down':''}">${d.fees_paid>0?'-'+fmt(d.fees_paid,8):fmt(0,8)}</span>
+    <span class="k tot">Total</span><span class="v tot ${cls(d.total_pnl)}">${sign(d.total_pnl)}</span>`;
+}
+
+function renderInstruments(summary){
+  document.querySelector("#instruments tbody").innerHTML = Object.entries(summary.instruments).map(([iid,i])=>{
+    const ts = i.mark_ts_ns, ageMs = ts ? Date.now()-ts/1e6 : null;
+    const feed = ageMs==null ? '<span class="down">no mark</span>' : ageMs>5000 ? '<span class="down">stale</span>' : '<span class="up">live</span>';
+    return `<tr><td>${iid}</td><td class="num">${fmt(i.mark)}</td>
+      <td class="num ${cls(i.net_position)}">${q(i.net_position)}</td>
+      <td class="num">${fmt(i.notional_usdt,0)}</td>
+      <td class="num ${cls(i.unrealized_pnl)}">${sign(i.unrealized_pnl)}</td><td>${feed}</td></tr>`;
+  }).join("");
+}
+
+function renderStrategies(summary){
+  const bookIds = Object.keys(summary.books);
+  if (!selectedBook || !bookIds.includes(selectedBook)) selectedBook = bookIds[0];
+  document.getElementById("bookTabs").innerHTML = bookIds.map(id =>
+    `<button class="subtab ${id===selectedBook?'active':''}" data-book="${id}">${id}</button>`).join("");
+
+  const b = summary.books[selectedBook];
+  const posLim = b.limits.position_limit;
+  // Fixed rows: one per instrument in the universe, so the table doesn't grow/shrink.
+  const posRows = Object.keys(summary.instruments).map(iid => {
+    const p = b.positions[iid] || {qty:0, avg_entry_price:0, notional_usdt:0, unrealized_pnl:0};
+    return `<tr><td>${iid}</td>
+      <td class="num ${cls(p.qty)}">${q(p.qty)}${posLim!=null?` <span class="muted">/${fmt(posLim,0)}</span>`:''}</td>
+      <td class="num">${fmt(p.avg_entry_price)}</td>
+      <td class="num">${fmt(p.notional_usdt,0)}</td>
+      <td class="num ${cls(p.unrealized_pnl)}">${sign(p.unrealized_pnl)}</td></tr>`;
+  }).join("");
+  const ddPct = b.limits.drawdown_limit_usdt>0 ? Math.min(100,b.drawdown/b.limits.drawdown_limit_usdt*100) : 0;
+  const notPct = b.limits.notional_limit_usdt>0 ? Math.min(100,b.notional_usdt/b.limits.notional_limit_usdt*100) : 0;
+  document.getElementById("bookDetail").innerHTML = `
+    ${b.kill_switch ? '<span class="badge kill" style="margin-bottom:10px;display:inline-block">KILL SWITCH</span>' : ''}
+    <table><thead><tr><th>instrument</th><th class="num">qty</th><th class="num">entry</th><th class="num">notional</th><th class="num">upnl</th></tr></thead>
+      <tbody>${posRows}</tbody></table>
+    <h3 style="margin-top:16px">PnL attribution</h3>
+    <div class="rows">${attrRows(b)}</div>
+    <div class="bar ${barState(ddPct)}" style="margin-top:12px"><span style="width:${ddPct}%"></span></div>
+    <div class="barlabel"><span>drawdown</span><span>${fmt(b.drawdown)} / ${fmt(b.limits.drawdown_limit_usdt,0)}</span></div>
+    <div class="bar ${barState(notPct)}"><span style="width:${notPct}%"></span></div>
+    <div class="barlabel"><span>notional (book)</span><span>${fmt(b.notional_usdt,0)} / ${fmt(b.limits.notional_limit_usdt,0)}</span></div>`;
+}
+document.getElementById("bookTabs").addEventListener("click", e => {
+  if (e.target.dataset.book){ selectedBook = e.target.dataset.book; if (window._sum) renderStrategies(window._sum); }
+});
+
+function renderRecon(ex){
+  const card = document.getElementById("reconCard");
+  if (!ex){ card.style.display="none"; return; }
+  card.style.display="";
+  const badge = document.getElementById("reconBadge");
+  const tbody = document.querySelector("#reconTable tbody");
+  if (!ex.ok){ badge.className="badge err"; badge.textContent="error"; document.getElementById("reconTime").textContent=ex.error||""; tbody.innerHTML=""; return; }
+  const insts = ex.instruments || {};
+  const allMatch = Object.values(insts).every(i=>i.matched);
+  badge.className = "badge " + (allMatch?"ok":"err"); badge.textContent = allMatch ? "in sync" : "mismatch";
+  document.getElementById("reconEquity").textContent = fmt(ex.total_equity_usdt)+" USDT";
+  document.getElementById("reconTime").textContent = clock(ex.ts_ms);
+  tbody.innerHTML = Object.entries(insts).map(([iid,i])=>`<tr><td>${iid}</td>
+    <td class="num">${q(i.engine_qty)}</td><td class="num">${q(i.exchange_qty)}</td>
+    <td class="num ${i.matched?'muted':'down'}">${sign(i.diff)}</td>
+    <td class="${i.matched?'up':'down'}">${i.matched?'✓ match':'✗ mismatch'}</td></tr>`).join("");
+}
+
+function renderOrderForm(summary){
+  if (orderFormReady) return;  // books/instruments are fixed for a run; populate once, keep selection
+  const opts = keys => keys.map(k=>`<option>${k}</option>`).join("");
+  document.getElementById("ordBook").innerHTML = opts(Object.keys(summary.books));
+  document.getElementById("ordInstrument").innerHTML = opts(Object.keys(summary.instruments));
+  orderFormReady = true;
+}
+document.getElementById("ordSide").addEventListener("click", e => {
+  if (!e.target.dataset.side) return;
+  orderSide = e.target.dataset.side;
+  for (const b of document.querySelectorAll("#ordSide .sidebtn")) b.classList.toggle("active", b.dataset.side===orderSide);
+});
+async function placeOrder(){
+  const btn = document.getElementById("ordPlace"), out = document.getElementById("ordResult");
+  const body = { book: ordBook.value, instrument: ordInstrument.value, side: orderSide, qty: parseFloat(ordQty.value) };
+  btn.disabled = true; out.innerHTML = '<span class="muted">placing…</span>';
+  try {
+    const d = await fetch("/order", {method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify(body)}).then(r=>r.json());
+    if (!d.ok) out.innerHTML = `<span class="down">error: ${d.error}</span>`;
+    else if (d.approved) out.innerHTML = `<span class="up">✓ APPROVED — ${d.order_id}</span>`;
+    else out.innerHTML = `<span class="down">✗ REJECTED — ${d.reason} ${d.detail&&Object.keys(d.detail).length?JSON.stringify(d.detail):''}</span>`;
+  } catch(e){ out.innerHTML = `<span class="down">${e}</span>`; }
+  finally { btn.disabled = false; }
+}
+document.getElementById("ordPlace").addEventListener("click", placeOrder);
+
+function renderTrades(trades){
+  const tbody = document.querySelector("#trades tbody"), empty = document.getElementById("tradesEmpty");
+  if (!trades || !trades.length){ tbody.innerHTML=""; empty.style.display="block"; return; }
+  empty.style.display="none";
+  tbody.innerHTML = trades.map(t => `<tr>
+    <td class="muted">${clock(t.ts_ms)}</td><td>${t.book_id}</td><td>${t.instrument_id}</td>
+    <td class="${t.side==='BUY'?'up':'down'}">${t.side}</td>
+    <td class="num">${q(t.qty)}</td><td class="num">${fmt(t.price)}</td>
+    <td class="num ${t.fee>0?'down':'muted'}">${t.fee>0?'-'+fmt(t.fee,8):fmt(0,8)}</td></tr>`).join("");
+}
+
+function drawChart(){
+  const c = document.getElementById("chart"), dpr = window.devicePixelRatio || 1;
+  const w = c.clientWidth, h = c.clientHeight;
+  c.width = w*dpr; c.height = h*dpr;
+  const ctx = c.getContext("2d"); ctx.scale(dpr,dpr); ctx.clearRect(0,0,w,h);
+  document.getElementById("chartStart").textContent = hist.length ? clock(hist[0].t) : "";
+  document.getElementById("chartNow").textContent = hist.length ? clock(hist[hist.length-1].t)+"  ("+sign(hist[hist.length-1].v)+")" : "";
+  if (hist.length < 2) return;
+  const vals = hist.map(p=>p.v), min = Math.min(...vals,0), max = Math.max(...vals,0);
+  const pad = (max-min)*0.1 || 1, lo = min-pad, hi = max+pad;
+  const x = i => i/(vals.length-1)*w, y = v => h - (v-lo)/(hi-lo)*h;
+  ctx.strokeStyle = "#232a36"; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(0,y(0)); ctx.lineTo(w,y(0)); ctx.stroke();
+  ctx.strokeStyle = vals[vals.length-1] >= 0 ? "#26c281" : "#f2545b"; ctx.lineWidth = 2; ctx.beginPath();
+  vals.forEach((v,i)=> i? ctx.lineTo(x(i),y(v)) : ctx.moveTo(x(i),y(v)));
+  ctx.stroke();
+}
+
+async function poll(){
+  try {
+    const s = await fetch("/status").then(r=>r.json());
+    document.getElementById("err").style.display = "none";
+    const sum = s.summary; window._sum = sum;
+    const iids = Object.keys(sum.instruments);
+    document.getElementById("deskId").textContent = s.desk.desk_id;
+    document.getElementById("instCount").textContent = iids.length + (iids.length===1?" instrument":" instruments");
+
+    let maxAge = null;
+    for (const iid of iids){ const ts = sum.instruments[iid].mark_ts_ns; if (ts){ const a = Date.now()-ts/1e6; maxAge = maxAge==null?a:Math.max(maxAge,a); } }
+    const feed = document.getElementById("feed");
+    if (maxAge == null){ feed.className="badge err"; feed.textContent="no marks"; }
+    else if (maxAge > 5000){ feed.className="badge stale"; feed.textContent=`stale ${(maxAge/1000).toFixed(0)}s`; }
+    else { feed.className="badge ok"; feed.textContent="live"; }
+    document.getElementById("kill").style.display = sum.desk.kill_switch ? "" : "none";
+
+    // Overall
+    document.getElementById("deskPnl").innerHTML = `<span class="${cls(sum.desk.total_pnl)}">${sign(sum.desk.total_pnl)}</span>`;
+    document.getElementById("deskAttr").innerHTML = attrRows(sum.desk);
+    document.getElementById("deskDd").textContent = fmt(sum.desk.drawdown);
+    bar("deskDdBar","deskDdLabel", sum.desk.drawdown, sum.desk.drawdown_limit_usdt);
+    document.getElementById("deskNot").textContent = fmt(sum.desk.gross_notional_usdt,0);
+    bar("deskNotBar","deskNotLabel", sum.desk.gross_notional_usdt, sum.desk.notional_limit_usdt);
+    hist.push({t: Date.now(), v: sum.desk.total_pnl}); if (hist.length > HIST) hist.shift();
+    drawChart();
+    renderInstruments(sum);
+    renderRecon(sum.exchange);
+    // Strategies + Trades
+    renderStrategies(sum);
+    renderOrderForm(sum);
+    renderTrades(sum.recent_trades);
+    document.getElementById("updated").textContent = "updated " + clock(Date.now());
+  } catch (e) {
+    document.getElementById("err").style.display = "block";
+  }
+}
+poll(); setInterval(poll, POLL_MS);
+window.addEventListener("resize", drawChart);
+</script>
+</body>
+</html>

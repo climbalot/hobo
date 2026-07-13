@@ -1,0 +1,20 @@
+# python
+__pycache__/
+*.pyc
+.venv/
+dist/
+*.egg-info/
+
+# secrets & runtime data (source stays tracked: hobo/ scripts/ seeds/ config/ tests/)
+.env
+data/*
+!data/.gitkeep
+
+# tool caches
+.pytest_cache/
+.ruff_cache/
+.coverage
+
+# editor / OS / assistant
+.claude/
+.DS_Store

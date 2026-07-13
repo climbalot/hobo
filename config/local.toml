@@ -1,0 +1,32 @@
+# Local / offline environment: internal paper fills, no API keys needed.
+# Secrets and the docker per-container knobs (REPLICA_MODE, METRICS_PORT) come
+# from env vars, never from this file. Select with RISK_ENV=local (the default).
+
+[exchange]
+name = "okx"
+ws_url = "wss://ws.okx.com:8443/ws/v5/public"
+ws_private_url = "wss://wspap.okx.com:8443/ws/v5/private"
+rest_url = "https://www.okx.com"
+instruments = ["BTC-USDT-SWAP", "ETH-USDT-SWAP", "SOL-USDT-SWAP"]
+demo_trading = false
+
+[risk]
+maintenance_margin_rate = 0.005
+
+[execution]
+backend = "paper"
+
+[durability]
+# Relative log/snapshot paths resolve under DATA_DIR (default <APP_HOME>/data);
+# desk_seed_path resolves under APP_HOME (default repo root). Absolute paths are
+# used as-is - set them (or DATA_DIR) for containerized/volume deployments.
+event_log_path = "local/eventlog.bin"
+snapshot_path = "local/snapshots"
+desk_seed_path = "./seeds/desk_seed.json"
+fsync_interval_ms = 100
+
+[coldpath]
+metrics_port = 9090
+
+[replica]
+mode = false

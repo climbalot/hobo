@@ -1,0 +1,36 @@
+# Exchange demo-trading environment: approved orders route to the exchange's demo
+# venue over its authenticated private WS; fills return async. Requires
+# EXCHANGE_API_KEY/SECRET/PASSPHRASE as env vars (demo keys only - never commit them).
+# Select with RISK_ENV=demo. Market data is real/live even in demo; only orders are simulated.
+
+[exchange]
+name = "okx"
+# Public market data uses the demo (paper) feed, which streams live marks; the
+# EEA endpoint (wseeapap) only returns a one-shot snapshot on subscribe. The
+# private channel stays on wseeapap - the EEA account's auth is tied to it.
+ws_url = "wss://wspap.okx.com:8443/ws/v5/public?brokerId=9999"
+ws_private_url = "wss://wseeapap.okx.com:8443/ws/v5/private"
+rest_url = "https://eea.okx.com"
+instruments = ["BTC-USDT-SWAP", "ETH-USDT-SWAP", "SOL-USDT-SWAP"]
+demo_trading = true
+
+[risk]
+maintenance_margin_rate = 0.005
+
+[execution]
+backend = "exchange"
+
+[durability]
+# Relative log/snapshot paths resolve under DATA_DIR (default <APP_HOME>/data);
+# desk_seed_path resolves under APP_HOME (default repo root). Absolute paths are
+# used as-is - set them (or DATA_DIR) for containerized/volume deployments.
+event_log_path = "demo/eventlog.bin"
+snapshot_path = "demo/snapshots"
+desk_seed_path = "./seeds/desk_seed.json"
+fsync_interval_ms = 100
+
+[coldpath]
+metrics_port = 9090
+
+[replica]
+mode = false

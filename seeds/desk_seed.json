@@ -1,0 +1,15 @@
+{
+  "desk_id": "my-portfolio",
+  "desk": {
+    "notional_limit_usdt": 700000,
+    "drawdown_limit_usdt": 50000
+  },
+  "books": [
+    {
+      "book_id": "scalper",
+      "position_limit": 5,
+      "notional_limit_usdt": 200000,
+      "drawdown_limit_usdt": 25000
+    }
+  ]
+}
