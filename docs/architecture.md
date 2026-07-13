@@ -21,7 +21,7 @@ This expands the diagram in the README with the actual module that implements ea
 | Feed health / kill switch | `hobo/core/health.py`, `hobo/risk/staleness.py` | `FeedHealthMonitor` subscribes to market events to feed a `StalenessWatchdog`; a periodic `check()` trips the desk kill switch on a fresh->stale transition. |
 | Composition root | `hobo/builder.py` | `EngineBuilder` wires the whole graph from config + adapter, in `build()` order; shared handles live on the builder only at build time. |
 | Lifecycle | `hobo/application.py` | `Application` owns the process lifecycle: periodic fsync/snapshot/staleness tasks, signals, teardown order. `ReplicaApplication` is the standby variant. |
-| Strategies | `hobo/strategies/{base,momentum,mean_reversion,oscillator}.py` | Book-agnostic strategy sources. Default wiring runs `OscillatorStrategy` as the book `"scalper"` across the instrument universe; the momentum and mean-reversion classes exist and can be wired as additional books. |
+| Strategies | `hobo/strategies/{base,oscillator}.py` | The `Strategy` protocol plus the oscillator. Default wiring runs `OscillatorStrategy` as the book `"scalper"` across the instrument universe; more books are a seed-roster entry plus a strategy class. |
 | Append-only log | `hobo/log/{format,writer,reader}.py` | Length-prefixed mmap frames, a 4096-byte header page with `committed_offset`/`last_seq`, growth by `ftruncate`+remap. Log file is `eventlog.bin`. |
 | Snapshots | `hobo/log/snapshot.py` | Atomic JSON snapshots (`.tmp` -> fsync -> `os.replace`), retention of the last K. |
 | Recovery / reconciliation | `hobo/log/recovery.py` | Snapshot -> replay tail -> reconcile instrument specs, mark freshness, and the book roster (see `docs/reconciliation.md`). |

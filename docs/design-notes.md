@@ -82,7 +82,7 @@ The gate is two-level on purpose: an order from a book is checked against **both
 The interesting case, and the one that justifies the hierarchy, is a book that is fully within its own limits whose order would still push the *desk* over its aggregate cap - the gate rejects it.
 
 The shipped desk gross-notional limit (`700,000` in `seeds/desk_seed.json`) is deliberately set below the unconstrained sum the books could reach, so this desk-level rejection is a real, reachable behavior rather than something that only shows up in unit tests with bespoke fixtures.
-The default roster runs a single strategy book (`"scalper"`) across several instruments, but the structure generalizes to N books: the desk aggregates all of them, and adding a second or third book (the momentum and mean-reversion strategies already exist) is a seed-roster change, not a code change.
+The default roster runs a single strategy book (`"scalper"`) across several instruments, but the structure generalizes to N books: the desk aggregates all of them, and adding another book is a seed-roster entry plus a strategy class.
 The point of the two-level design is that desk-level protection does not depend on how many books are trading or on any one book being individually over its own limit.
 
 ## Reconciliation is real against the demo account
